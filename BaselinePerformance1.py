@@ -8,16 +8,16 @@ import numpy as np
 import pandas as pd
 import sklearn.model_selection
 import torch
+import time 
 
-def collapse_small_categories(df, col, min_count=10, other_label="others"):
-    counts = df[col].value_counts()
-    rare = counts[counts < min_count].index
-    df[col] = df[col].where(~df[col].isin(rare), other_label)
-    return df
+# Load and prepare the data
+training_db = pd.read_csv("train.csv")
+test_db = pd.read_csv("test.csv")
+labels = training_db["VoteScore"]
+
 
 # Load and prepare the data
 df = pd.read_csv("vehicles_clean2.csv", header=0)
-df = collapse_small_categories(df, "manufacturer", min_count=100)
 df = pd.get_dummies(df, prefix_sep="_", drop_first=True, dtype=int)
 labels = df["price"]
 df = df.drop(columns="price")

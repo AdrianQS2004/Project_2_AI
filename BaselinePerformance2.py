@@ -1,154 +1,74 @@
-# Introduction to Machine Learning
-# Credit Default Dataset
-# Logistic regression solved through gradient descent 
+# Introduction to Artificial Intelligence
+# Vehicle Price dataset
+# Linear Regression in PyTorch
 # By Juan Carlos Rojas
 # Copyright 2025, Texas Tech University - Costa Rica
 
+from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
-import matplotlib.pyplot as plt
 import sklearn.model_selection
-import sklearn.metrics
 import torch
+import time 
 
-# ============================================================
-# Load and prepare data
-# ============================================================
+# Load and prepare the data
+training_db = pd.read_csv("train.csv", header=0)
+test_db = pd.read_csv("test.csv", header=0)
 
-df = pd.read_csv("train.csv", header=0)
-df = pd.get_dummies(df, prefix_sep="_", drop_first=True, dtype=int)
-labels = df["loan_paid_back"]
-df = df.drop(columns="loan_paid_back")
-df = df.drop(columns="id")  # Drop id column before splitting
-train_data, test_data, train_labels, test_labels = \
-            sklearn.model_selection.train_test_split(df, labels,
-            test_size=0.2, shuffle=True, random_state=2025)
+
+training_db = pd.get_dummies(training_db, prefix_sep="_", drop_first=True, dtype=int)
+labels = training_db["loan_paid_back"]
+ids = test_db['id']
+training_db = training_db.drop(columns=["loan_paid_back", "id"])
+
+test_db = test_db.drop(columns=["id"])
+test_db = pd.get_dummies(test_db, prefix_sep="_", drop_first=True, dtype=int)
+
+# Align test columns to match training columns (fill missing with 0, drop extra)
+test_db = test_db.reindex(columns=training_db.columns, fill_value=0)
+
+train_data = training_db.copy()
+train_labels = labels.copy()
+test_data = test_db.copy()
+
 
 # Standardize scale for all columns
 train_means = train_data.mean()
-train_stds = train_data.std()
+train_stds = train_data.std().replace(0, 1)  # Replace zero std with 1 to avoid division by zero
 train_data = (train_data - train_means) / train_stds
 test_data  = (test_data  - train_means) / train_stds
 
-# Get some lengths
-ncoeffs = train_data.shape[1]
-nsamples = train_data.shape[0]
 
-# ============================================================
-# Training constants
-# ============================================================
-n_iterations = 5000
-learning_rate = 0.1
-eval_step = 100
+# Select columns of interest (all columns)
+cols = train_data.columns
 
-# Print the configuration
-print(f"Num iterations: {n_iterations}  Learning rate: {learning_rate}")
+# Start timer for training + prediction
+start_time = time.time()
 
-# ============================================================
-# Convert data to PyTorch tensors
-# ============================================================
-X = torch.tensor(train_data.values, dtype=torch.float32)
-Y = torch.tensor(train_labels.values.reshape(-1, 1), dtype=torch.float32)
-X_test = torch.tensor(test_data.values, dtype=torch.float32)
-Y_test = torch.tensor(test_labels.values.reshape(-1, 1), dtype=torch.float32)
+# Create and train a new LinearRegression model
+model = sklearn.linear_model.LinearRegression()
 
-# ============================================================
-# Create and initialize weights and bias
-# ============================================================
-
-# Create a vector of coefficients with random values between -1 and 1
-W = torch.rand((ncoeffs, 1)) * 2 - 1
-
-# Create a bias variable initialized to zero
-B = torch.zeros(1, dtype=torch.float32)
-
-# Start tracking gradients on W & B
-W.requires_grad_(True)
-B.requires_grad_(True)
-
-# ============================================================
-# Training loop
-# ============================================================
-
-# Training loop
-train_cost_hist = []
-test_metric_hist = []
-
-for iteration in range(n_iterations):
-
-    # Forward pass: predictions
-    logits = X @ W + B
-    #Y_pred = torch.sigmoid(logits)
-
-    # Loss computation (logistic_loss)
-
-    # Option 1: Explicit binary cross-entropy formula
-    #  The 1e-7 is to avoid log(0) in case of exact 0 or 1 predictions
-    #cost = -torch.mean(Y * torch.log(Y_pred + 1e-7) + (1 - Y) * torch.log(1 - Y_pred + 1e-7))
-    
-    # Option 2: Built-in function (more efficient)
-    cost = torch.nn.functional.binary_cross_entropy_with_logits(logits, Y)
-
-    # Compute gradients of MSE with respect to W & B
-    # Will be stored in W.grad & B.grad
-    cost.backward()
-
-    # Parameter update (gradient descent)
-    with torch.no_grad():
-        W -= learning_rate * W.grad
-        B -= learning_rate * B.grad
-
-    # Zero gradients for next iteration
-    W.grad.zero_()
-    B.grad.zero_()
-
-    # Evaluate and record cost every eval_step iterations
-    if iteration % eval_step == 0:
-
-        with torch.no_grad():
-            train_cost = cost.item()
-
-            # Predictions on test data
-            test_logits = X_test @ W + B
-            test_pred_proba = torch.sigmoid(test_logits).numpy()
-        
-            # Compute test ROC AUC
-            test_roc_auc = sklearn.metrics.roc_auc_score(test_labels, test_pred_proba)
-
-            train_cost_hist.append(train_cost)
-            test_metric_hist.append(test_roc_auc)
-
-            print(f"Iteration {iteration:4d}: Train cost: {train_cost:.4f}  Test ROC AUC: {test_roc_auc:.4f}")
+model.fit(train_data[cols], train_labels)
 
 
+# Get model outputs on the test set and convert to binary predictions.
+# For LinearRegression this will produce continuous scores; threshold at 0.8
+# (change threshold as needed). We also clip scores to [0,1] for safety.
+preds_raw = model.predict(test_data[cols])
+preds_scores = np.clip(preds_raw, 0.0, 1.0)
+# Get the prediction probabilities
 
 
-# Plot results
-iterations_hist = [i for i in range(0, n_iterations, eval_step)]
-plt.plot(iterations_hist, train_cost_hist, "b")
-plt.xlabel("Iteration")
-plt.ylabel("Train Cost")
-plt.title("Train Cost Evolution")
-plt.figure()
-plt.plot(iterations_hist, test_metric_hist, "r")
-plt.xlabel("Iteration")
-plt.ylabel("Test ROC AUC")
-plt.title("Test ROC AUC Evolution")
-plt.show()
+# If it high aboce threshold, predict 1, else 0
+preds = (preds_scores >= 0.9).astype(int)
 
-# Write the submission file
+print(f"Model produced {len(preds)} predictions. Sum of positives: {preds.sum()}")
 
-# After training, compute final probabilities on the test set and write submission
-with torch.no_grad():
-    final_test_logits = X_test @ W + B
-    final_test_proba = torch.sigmoid(final_test_logits).cpu().numpy().reshape(-1)
+# End timer and report elapsed time for fit + predict steps
+elapsed = time.time() - start_time
+print(f"Elapsed time (train + predict): {elapsed:.2f} seconds")
 
-# Threshold to binary predictions (0/1). Use 0.5 by default.
-preds = (final_test_proba >= 0.5).astype(int)
-
-# Build submission DataFrame using test data indices as ids
-# (since we're predicting on a validation split from training, not the actual test.csv)
-test_indices = test_data.index.values  # Get the original row indices
-submission = pd.DataFrame({'id': test_indices, 'loan_paid_back': preds})
+# Build submission DataFrame using the original ids column
+submission = pd.DataFrame({'id': ids, 'loan_paid_back': preds})
 submission.to_csv('my_submission.csv', index=False)
 print(f"Wrote submission 'my_submission.csv' with {len(submission)} rows")

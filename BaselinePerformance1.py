@@ -76,6 +76,9 @@ eval_step = 100
 # Training loop
 # ============================================================
 
+# Record start time for the training loop
+start_time = time.time()
+
 for iteration in range(n_iterations):
 
     # Forward pass: compute logits (raw predictions)
@@ -97,6 +100,10 @@ for iteration in range(n_iterations):
     # Print progress every eval_step iterations
     if iteration % eval_step == 0:
         print(f"Iteration {iteration:4d}: Train Cost = {cost.item():.6f}")
+
+# Training finished — compute elapsed time
+elapsed = time.time() - start_time
+print(f"Training completed in {elapsed:.2f} seconds")
 
 
 # Write the submission file

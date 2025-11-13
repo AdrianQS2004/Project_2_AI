@@ -15,10 +15,11 @@ import torch
 # Load and prepare data
 # ============================================================
 
-df = pd.read_csv("train.csvs", header=0)
+df = pd.read_csv("train.csv", header=0)
 df = pd.get_dummies(df, prefix_sep="_", drop_first=True, dtype=int)
 labels = df["loan_paid_back"]
 df = df.drop(columns="loan_paid_back")
+df = df.drop(columns="id")  # Drop id column before splitting
 train_data, test_data, train_labels, test_labels = \
             sklearn.model_selection.train_test_split(df, labels,
             test_size=0.2, shuffle=True, random_state=2025)
@@ -36,7 +37,7 @@ nsamples = train_data.shape[0]
 # ============================================================
 # Training constants
 # ============================================================
-n_iterations = 10000
+n_iterations = 5000
 learning_rate = 0.1
 eval_step = 100
 
@@ -111,12 +112,15 @@ for iteration in range(n_iterations):
             test_logits = X_test @ W + B
             test_pred_proba = torch.sigmoid(test_logits).numpy()
         
-
+            # Compute test ROC AUC
+            test_roc_auc = sklearn.metrics.roc_auc_score(test_labels, test_pred_proba)
 
             train_cost_hist.append(train_cost)
             test_metric_hist.append(test_roc_auc)
 
             print(f"Iteration {iteration:4d}: Train cost: {train_cost:.4f}  Test ROC AUC: {test_roc_auc:.4f}")
+
+
 
 
 # Plot results
@@ -131,3 +135,20 @@ plt.xlabel("Iteration")
 plt.ylabel("Test ROC AUC")
 plt.title("Test ROC AUC Evolution")
 plt.show()
+
+# Write the submission file
+
+# After training, compute final probabilities on the test set and write submission
+with torch.no_grad():
+    final_test_logits = X_test @ W + B
+    final_test_proba = torch.sigmoid(final_test_logits).cpu().numpy().reshape(-1)
+
+# Threshold to binary predictions (0/1). Use 0.5 by default.
+preds = (final_test_proba >= 0.5).astype(int)
+
+# Build submission DataFrame using test data indices as ids
+# (since we're predicting on a validation split from training, not the actual test.csv)
+test_indices = test_data.index.values  # Get the original row indices
+submission = pd.DataFrame({'id': test_indices, 'loan_paid_back': preds})
+submission.to_csv('my_submission.csv', index=False)
+print(f"Wrote submission 'my_submission.csv' with {len(submission)} rows")

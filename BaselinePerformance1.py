@@ -12,19 +12,29 @@ import torch
 import time 
 
 # Load and prepare the data
-training_db = pd.read_csv("train.csv")
-test_db = pd.read_csv("test.csv")
+training_db = pd.read_csv("train.csv", header=0)
+test_db = pd.read_csv("test.csv", header=0)
+
+
+training_db = pd.get_dummies(training_db, prefix_sep="_", drop_first=True, dtype=int)
 labels = training_db["loan_paid_back"]
 ids = test_db['id']
+training_db = training_db.drop(columns=["loan_paid_back", "id"])
+
+test_db = test_db.drop(columns=["id"])
+test_db = pd.get_dummies(test_db, prefix_sep="_", drop_first=True, dtype=int)
+
+# Align test columns to match training columns (fill missing with 0, drop extra)
+test_db = test_db.reindex(columns=training_db.columns, fill_value=0)
 
 train_data = training_db.copy()
 train_labels = labels.copy()
 test_data = test_db.copy()
-test_labels = test_db.copy()
+
 
 # Standardize scale for all columns
 train_means = train_data.mean()
-train_stds = train_data.std()
+train_stds = train_data.std().replace(0, 1)  # Replace zero std with 1 to avoid division by zero
 train_data = (train_data - train_means) / train_stds
 test_data  = (test_data  - train_means) / train_stds
 
@@ -58,7 +68,7 @@ B.requires_grad_(True)
 # ============================================================
 # Training constants
 # ============================================================
-n_iterations = 10000
+n_iterations = 5000
 learning_rate = 0.1
 eval_step = 100
 
@@ -86,7 +96,7 @@ for iteration in range(n_iterations):
 
     # Print progress every eval_step iterations
     if iteration % eval_step == 0:
-        print(f"Iteration {iteration:4d}: Loss = {cost.item():.6f}")
+        print(f"Iteration {iteration:4d}: Train Cost = {cost.item():.6f}")
 
 
 # Write the submission file
@@ -96,8 +106,8 @@ with torch.no_grad():
     final_test_logits = X_test @ W + B
     final_test_proba = torch.sigmoid(final_test_logits).cpu().numpy().reshape(-1)
 
-# Threshold to binary predictions (0/1). Use 0.5 by default.
-preds = (final_test_proba >= 0.5).astype(int)
+# Threshold to binary predictions (0/1). Use 0.8 by default.
+preds = (final_test_proba >= 0.8).astype(int)
 
 # Build submission DataFrame using the original ids column
 submission = pd.DataFrame({'id': ids, 'loan_paid_back': preds})

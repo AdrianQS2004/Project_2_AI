@@ -55,12 +55,9 @@ model.fit(train_data[cols], train_labels)
 # For LinearRegression this will produce continuous scores; threshold at 0.8
 # (change threshold as needed). We also clip scores to [0,1] for safety.
 preds_raw = model.predict(test_data[cols])
-preds_scores = np.clip(preds_raw, 0.0, 1.0)
+preds = np.clip(preds_raw, 0.0, 1.0)
 # Get the prediction probabilities
 
-
-# If it high aboce threshold, predict 1, else 0
-preds = (preds_scores >= 0.9).astype(int)
 
 print(f"Model produced {len(preds)} predictions. Sum of positives: {preds.sum()}")
 

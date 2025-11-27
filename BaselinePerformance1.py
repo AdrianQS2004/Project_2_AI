@@ -12,8 +12,8 @@ import torch
 import time 
 
 # Load and prepare the data
-training_db = pd.read_csv("train.csv", header=0)
-test_db = pd.read_csv("test.csv", header=0)
+training_db = pd.read_csv("Datasets/train.csv", header=0)
+test_db = pd.read_csv("Datasets/test.csv", header=0)
 
 
 training_db = pd.get_dummies(training_db, prefix_sep="_", drop_first=True, dtype=int)
@@ -114,7 +114,7 @@ with torch.no_grad():
     final_test_proba = torch.sigmoid(final_test_logits).cpu().numpy().reshape(-1)
 
 # Threshold to binary predictions (0/1). Use 0.8 by default.
-preds = (final_test_proba >= 0.8).astype(int)
+preds = final_test_proba 
 
 # Build submission DataFrame using the original ids column
 submission = pd.DataFrame({'id': ids, 'loan_paid_back': preds})

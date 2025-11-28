@@ -77,8 +77,8 @@ Y_test = torch.tensor(test_labels.values.reshape(-1, 1), dtype=torch.float32, de
 # because we will use BCEWithLogitsLoss which combines a sigmoid layer
 model = torch.nn.Sequential(
     torch.nn.Linear(n_inputs, n_nodes_l1),
-    #torch.nn.ELU(),
-    torch.nn.ReLU(),
+    torch.nn.ELU(),
+    #torch.nn.ReLU(),
     torch.nn.Linear(n_nodes_l1, 1)
 )
 model.to(device)

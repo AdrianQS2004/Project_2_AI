@@ -38,10 +38,10 @@ nsamples = train_data.shape[0]
 # ============================================================
 # Training constants
 # ============================================================
-n_nodes_l1 = 500
-batch_size = 1024       # Mini-batch gradient descent
-learning_rate = 1e-2
-n_epochs = 100
+n_nodes_l1 = 100
+batch_size = 2048       # Mini-batch gradient descent
+learning_rate = 1e-4
+n_epochs = 1000
 eval_step = 1
 early_stop_patience = 50   # number of eval steps allowed without improvement
 

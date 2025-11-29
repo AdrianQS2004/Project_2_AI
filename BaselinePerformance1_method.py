@@ -1,13 +1,14 @@
+# Baseline Model 1: Logistic Regression (PyTorch)
 # Introduction to Artificial Intelligence
-# Vehicle Price dataset
-# Linear Regression in PyTorch
-# By Juan Carlos Rojas
+# Loan Default Prediction Competition
+# By Team
 # Copyright 2025, Texas Tech University - Costa Rica
 
 from matplotlib import pyplot as plt
 import numpy as np
 import pandas as pd
 import sklearn.model_selection
+import sklearn.metrics
 import torch
 import time 
 
@@ -38,15 +39,26 @@ train_stds = train_data.std().replace(0, 1)  # Replace zero std with 1 to avoid 
 train_data = (train_data - train_means) / train_stds
 test_data  = (test_data  - train_means) / train_stds
 
+# Split training data for validation
+train_data_split, val_data, train_labels_split, val_labels = \
+    sklearn.model_selection.train_test_split(
+        train_data, train_labels,
+        test_size=0.2, shuffle=True, random_state=2025
+    )
+
 # Get some lengths
-ncoeffs = train_data.shape[1]
-nsamples = train_data.shape[0]
+ncoeffs = train_data_split.shape[1]
+nsamples = train_data_split.shape[0]
 
 # PyTorch constants
 
 # Input vectors (convert to float32 tensors)
-X = torch.tensor(train_data.values, dtype=torch.float32)
-Y = torch.tensor(train_labels.values.reshape(-1,1), dtype=torch.float32)
+X = torch.tensor(train_data_split.values, dtype=torch.float32)
+Y = torch.tensor(train_labels_split.values.reshape(-1,1), dtype=torch.float32)
+
+# Validation set
+X_val = torch.tensor(val_data.values, dtype=torch.float32)
+Y_val = torch.tensor(val_labels.values.reshape(-1,1), dtype=torch.float32)
 
 # Compute predictions from test data
 X_test = torch.tensor(test_data.values, dtype=torch.float32)
@@ -105,18 +117,26 @@ for iteration in range(n_iterations):
 elapsed = time.time() - start_time
 print(f"Training completed in {elapsed:.2f} seconds")
 
+# Evaluate on validation set
+with torch.no_grad():
+    val_logits = X_val @ W + B
+    val_proba = torch.sigmoid(val_logits).cpu().numpy().reshape(-1)
+    val_roc_auc = sklearn.metrics.roc_auc_score(val_labels.values, val_proba)
+    
+    train_logits = X @ W + B
+    train_proba = torch.sigmoid(train_logits).cpu().numpy().reshape(-1)
+    train_roc_auc = sklearn.metrics.roc_auc_score(train_labels_split.values, train_proba)
+
+print(f"\nTrain ROC AUC: {train_roc_auc:.6f}")
+print(f"Val ROC AUC: {val_roc_auc:.6f}")
 
 # Write the submission file
-
 # After training, compute final probabilities on the test set and write submission
 with torch.no_grad():
     final_test_logits = X_test @ W + B
     final_test_proba = torch.sigmoid(final_test_logits).cpu().numpy().reshape(-1)
 
-# Threshold to binary predictions (0/1). Use 0.8 by default.
-preds = final_test_proba 
-
 # Build submission DataFrame using the original ids column
-submission = pd.DataFrame({'id': ids, 'loan_paid_back': preds})
+submission = pd.DataFrame({'id': ids, 'loan_paid_back': final_test_proba})
 submission.to_csv('my_submission.csv', index=False)
-print(f"Wrote submission 'my_submission.csv' with {len(submission)} rows")
+print(f"\nWrote submission 'my_submission.csv' with {len(submission)} rows")

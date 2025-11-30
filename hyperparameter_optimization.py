@@ -45,14 +45,28 @@ else:
     print("Using GridSearchCV - Slower but works without Optuna")
 
 # Configuration: Adjust trials for speed vs thoroughness
-# - 20 trials: ~1-1.5 hours 
-# - 50 trials: ~2-4 hours 
+# - 20 trials: ~1-1.5 hours (XGB/LGB), but GB is much slower (sequential)
+# - 50 trials: ~2-4 hours (XGB/LGB), GB will take 10-15+ hours
 N_TRIALS = 50  # Set to 50 for thorough search (best results), or 20 for faster
-print(f"\nConfiguration: {N_TRIALS} trials per model")
-print(f"  Total trials: {N_TRIALS * 3} (XGBoost + LightGBM + GradientBoosting)")
-print(f"  Estimated time: {N_TRIALS * 3 * 2:.0f}-{N_TRIALS * 3 * 4:.0f} minutes (~2-4 hours)")
-print(f"  CPU usage: {num_jobs} cores (out of 12) - safe for background operation")
-print(f"  Note: Running in background mode - will take longer but won't overheat")
+# Gradient Boosting is sequential and MUCH slower - use fewer trials
+# RECOMMENDATION: Set to False to skip GB optimization (saves 10-15+ hours)
+# GB is the weakest model (0.915 vs 0.918-0.919 for XGB/LGB), so optimizing it has less impact
+OPTIMIZE_GB = False  # Set to True if you want to optimize GB (will take 10-15+ hours)
+GB_TRIALS = 10  # Only used if OPTIMIZE_GB = True
+
+if OPTIMIZE_GB:
+    print(f"\nConfiguration: {N_TRIALS} trials per model (XGBoost, LightGBM)")
+    print(f"              {GB_TRIALS} trials for Gradient Boosting (slower, sequential)")
+    print(f"  Total trials: {N_TRIALS * 2 + GB_TRIALS} (XGB + LGB + GB)")
+    print(f"  Estimated time: XGB/LGB ~2-3 hours, GB ~{GB_TRIALS * 0.5:.1f}-{GB_TRIALS * 0.7:.1f} hours")
+    print(f"  WARNING: GB is sequential - each trial takes 20-40 minutes!")
+else:
+    print(f"\nConfiguration: {N_TRIALS} trials per model (XGBoost, LightGBM)")
+    print(f"              Gradient Boosting: Using default parameters (skipping optimization)")
+    print(f"  Total trials: {N_TRIALS * 2} (XGB + LGB only)")
+    print(f"  Estimated time: ~2-3 hours (GB optimization skipped)")
+    print(f"  Reason: GB is weakest model (0.915) and too slow to optimize (20-40 min/trial)")
+print(f"  CPU usage: {num_jobs} cores (XGB/LGB), 1 core (GB if optimizing) - safe for background operation")
 
 # Submission filename - automatically includes trial count
 SUBMISSION_FILENAME = f'submissions/my_submission_optimized{N_TRIALS}trials.csv'
@@ -362,80 +376,112 @@ if LIGHTGBM_AVAILABLE:
         print(f"  Validation ROC AUC: {val_roc_lgb:.6f}")
 
 # ============================================================
-# Model 3: Gradient Boosting Optimization
+# Model 3: Gradient Boosting Optimization (Optional)
 # ============================================================
-print("\n" + "="*80)
-print("OPTIMIZING GRADIENT BOOSTING")
-print("="*80)
-
-if OPTUNA_AVAILABLE:
-    def objective_gb(trial):
-        params = {
-            'n_estimators': trial.suggest_int('n_estimators', 400, 800, step=100),
-            'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.03, log=True),
-            'max_depth': trial.suggest_int('max_depth', 6, 10),
-            'min_samples_split': trial.suggest_int('min_samples_split', 3, 8, step=2),
-            'min_samples_leaf': trial.suggest_int('min_samples_leaf', 1, 4),
-            'subsample': trial.suggest_float('subsample', 0.75, 0.95, step=0.05),
-            'max_features': trial.suggest_categorical('max_features', ['sqrt', 'log2', 0.8, 0.9]),
+if OPTIMIZE_GB:
+    print("\n" + "="*80)
+    print("OPTIMIZING GRADIENT BOOSTING")
+    print("="*80)
+    
+    if OPTUNA_AVAILABLE:
+        def objective_gb(trial):
+            params = {
+                'n_estimators': trial.suggest_int('n_estimators', 200, 500, step=100),  # Reduced from 400-800
+                'learning_rate': trial.suggest_float('learning_rate', 0.01, 0.03, log=True),
+                'max_depth': trial.suggest_int('max_depth', 6, 9),  # Reduced from 6-10
+                'min_samples_split': trial.suggest_int('min_samples_split', 5, 8, step=3),  # Reduced range
+                'min_samples_leaf': trial.suggest_int('min_samples_leaf', 1, 3),  # Reduced from 1-4
+                'subsample': trial.suggest_float('subsample', 0.8, 0.95, step=0.05),  # Reduced range
+                'max_features': trial.suggest_categorical('max_features', ['sqrt', 'log2']),  # Reduced options
+                'random_state': 2025,
+                'verbose': 0
+            }
+            
+            model = sklearn.ensemble.GradientBoostingClassifier(**params)
+            model.fit(train_data_split, train_labels_split)
+            
+            val_pred = model.predict_proba(val_data)[:, 1]
+            roc_auc = sklearn.metrics.roc_auc_score(val_labels, val_pred)
+            return roc_auc
+        
+        study_gb = optuna.create_study(direction='maximize', study_name='gb_optimization')
+        print(f"  Running Optuna optimization ({GB_TRIALS} trials)...")
+        print("  WARNING: Gradient Boosting is sequential (single-core) and much slower!")
+        print(f"  Each trial may take 20-40 minutes. Total time: ~{GB_TRIALS * 0.5:.1f}-{GB_TRIALS * 0.7:.1f} hours")
+        print("  Consider reducing GB_TRIALS or skipping GB optimization if too slow")
+        start_time = time.time()
+        study_gb.optimize(objective_gb, n_trials=GB_TRIALS, show_progress_bar=True)
+        elapsed = time.time() - start_time
+        
+        print(f"\n  Best Gradient Boosting ROC AUC: {study_gb.best_value:.6f}")
+        print(f"  Optimization time: {elapsed:.1f}s")
+        print(f"  Best parameters:")
+        for key, value in study_gb.best_params.items():
+            print(f"    {key}: {value}")
+        
+        # Train best model
+        best_params_gb = study_gb.best_params.copy()
+        best_params_gb.update({
             'random_state': 2025,
             'verbose': 0
-        }
+        })
         
-        model = sklearn.ensemble.GradientBoostingClassifier(**params)
-        model.fit(train_data_split, train_labels_split)
+        model_gb = sklearn.ensemble.GradientBoostingClassifier(**best_params_gb)
+        model_gb.fit(train_data_split, train_labels_split)
         
-        val_pred = model.predict_proba(val_data)[:, 1]
-        roc_auc = sklearn.metrics.roc_auc_score(val_labels, val_pred)
-        return roc_auc
-    
-    study_gb = optuna.create_study(direction='maximize', study_name='gb_optimization')
-    print(f"  Running Optuna optimization ({N_TRIALS} trials)...")
-    print("  This may take a while - each trial trains a full model...")
-    start_time = time.time()
-    study_gb.optimize(objective_gb, n_trials=N_TRIALS, show_progress_bar=True)
-    elapsed = time.time() - start_time
-    
-    print(f"\n  Best Gradient Boosting ROC AUC: {study_gb.best_value:.6f}")
-    print(f"  Optimization time: {elapsed:.1f}s")
-    print(f"  Best parameters:")
-    for key, value in study_gb.best_params.items():
-        print(f"    {key}: {value}")
-    
-    # Train best model
-    best_params_gb = study_gb.best_params.copy()
-    best_params_gb.update({
-        'random_state': 2025,
-        'verbose': 0
-    })
-    
-    model_gb = sklearn.ensemble.GradientBoostingClassifier(**best_params_gb)
-    model_gb.fit(train_data_split, train_labels_split)
-    
-    val_pred_gb = model_gb.predict_proba(val_data)[:, 1]
-    test_pred_gb = model_gb.predict_proba(test_data)[:, 1]
-    val_roc_gb = sklearn.metrics.roc_auc_score(val_labels, val_pred_gb)
-    
-    best_models['GradientBoosting'] = model_gb
-    best_scores['GradientBoosting'] = val_roc_gb
-    best_models['GradientBoosting_test'] = test_pred_gb
-    
-    print(f"  Final validation ROC AUC: {val_roc_gb:.6f}")
+        val_pred_gb = model_gb.predict_proba(val_data)[:, 1]
+        test_pred_gb = model_gb.predict_proba(test_data)[:, 1]
+        val_roc_gb = sklearn.metrics.roc_auc_score(val_labels, val_pred_gb)
+        
+        best_models['GradientBoosting'] = model_gb
+        best_scores['GradientBoosting'] = val_roc_gb
+        best_models['GradientBoosting_test'] = test_pred_gb
+        
+        print(f"  Final validation ROC AUC: {val_roc_gb:.6f}")
+    else:
+        print("  Optuna not available, using default Gradient Boosting parameters")
+        model_gb = sklearn.ensemble.GradientBoostingClassifier(
+            n_estimators=300, learning_rate=0.02, max_depth=8,
+            min_samples_split=5, subsample=0.85, max_features='sqrt',
+            random_state=2025, verbose=0
+        )
+        model_gb.fit(train_data_split, train_labels_split)
+        val_pred_gb = model_gb.predict_proba(val_data)[:, 1]
+        test_pred_gb = model_gb.predict_proba(test_data)[:, 1]
+        val_roc_gb = sklearn.metrics.roc_auc_score(val_labels, val_pred_gb)
+        best_models['GradientBoosting'] = model_gb
+        best_scores['GradientBoosting'] = val_roc_gb
+        best_models['GradientBoosting_test'] = test_pred_gb
+        print(f"  Validation ROC AUC: {val_roc_gb:.6f}")
 else:
-    print("  Optuna not available, using default Gradient Boosting parameters")
+    # Skip GB optimization - use default parameters
+    print("\n" + "="*80)
+    print("GRADIENT BOOSTING (Using Default Parameters)")
+    print("="*80)
+    print("  Skipping optimization - GB is sequential and too slow (20-40 min/trial)")
+    print("  GB is also the weakest model (0.915 vs 0.918-0.919 for XGB/LGB)")
+    print("  Using default parameters from feature_engineering_advanced.py")
+    
     model_gb = sklearn.ensemble.GradientBoostingClassifier(
         n_estimators=500, learning_rate=0.02, max_depth=8,
         min_samples_split=5, subsample=0.85, max_features='sqrt',
         random_state=2025, verbose=0
     )
+    print("  Training with default parameters...")
+    start_time = time.time()
     model_gb.fit(train_data_split, train_labels_split)
+    elapsed = time.time() - start_time
+    
     val_pred_gb = model_gb.predict_proba(val_data)[:, 1]
     test_pred_gb = model_gb.predict_proba(test_data)[:, 1]
     val_roc_gb = sklearn.metrics.roc_auc_score(val_labels, val_pred_gb)
+    
     best_models['GradientBoosting'] = model_gb
     best_scores['GradientBoosting'] = val_roc_gb
     best_models['GradientBoosting_test'] = test_pred_gb
-    print(f"  Validation ROC AUC: {val_roc_gb:.6f}")
+    
+    print(f"  Validation ROC AUC: {val_roc_gb:.6f} | Time: {elapsed:.1f}s")
+    print(f"  (Skipped optimization - saved ~10-15 hours)")
 
 # ============================================================
 # Ensemble Optimized Models

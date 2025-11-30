@@ -2,19 +2,19 @@
 
 ## Score History
 
-| Date    | Model               | ROC AUC     | Improvement | Notes                                            |
-| ------- | ------------------- | ----------- | ----------- | ------------------------------------------------ |
-| Initial | Baseline            | 0.91298     | Baseline    | Initial submission                               |
-| -       | Ensemble (4 models) | 0.92045     | +0.00747    | Combined RF, GB, XGB, LGB with optimized weights |
-| -       | Advanced Ensemble   | 0.92088     | +0.00043    | Feature engineering + 5 models + stacking        |
-| -       | CatBoost Ensemble   | 0.92016     | -0.00029    | CatBoost + XGB + LGB + GB (weaker than advanced) |
-| -       | Combined Ensemble   | 0.92077     | -0.00011    | Simple average of Advanced + CatBoost            |
-| -       | Weighted 80%        | **0.92100** | +0.00012    | Advanced 80% + CatBoost 20%                      |
-| -       | Weighted 90%        | **0.92100** | +0.00012    | Advanced 90% + CatBoost 10%                      |
-| -       | Weighted 95%        | 0.92096     | +0.00008    | Advanced 95% + CatBoost 5%                       |
-| -       | Feature Eng + 7 Models | 0.92075     | -0.00025    | Added NNs, all 7 models (overfitting)          |
-| -       | Feature Eng + 2 Models | 0.92054     | -0.00046    | Auto-selection too aggressive                   |
-| -       | Feature Eng + 3 Best | 0.92086     | -0.00014    | GB+XGB+LGB only (PReLU NNs, still < weighted) |
+| Date    | Model                  | ROC AUC     | Improvement | Notes                                            |
+| ------- | ---------------------- | ----------- | ----------- | ------------------------------------------------ |
+| Initial | Baseline               | 0.91298     | Baseline    | Initial submission                               |
+| -       | Ensemble (4 models)    | 0.92045     | +0.00747    | Combined RF, GB, XGB, LGB with optimized weights |
+| -       | Advanced Ensemble      | 0.92088     | +0.00043    | Feature engineering + 5 models + stacking        |
+| -       | CatBoost Ensemble      | 0.92016     | -0.00029    | CatBoost + XGB + LGB + GB (weaker than advanced) |
+| -       | Combined Ensemble      | 0.92077     | -0.00011    | Simple average of Advanced + CatBoost            |
+| -       | Weighted 80%           | **0.92100** | +0.00012    | Advanced 80% + CatBoost 20%                      |
+| -       | Weighted 90%           | **0.92100** | +0.00012    | Advanced 90% + CatBoost 10%                      |
+| -       | Weighted 95%           | 0.92096     | +0.00008    | Advanced 95% + CatBoost 5%                       |
+| -       | Feature Eng + 7 Models | 0.92075     | -0.00025    | Added NNs, all 7 models (overfitting)            |
+| -       | Feature Eng + 2 Models | 0.92054     | -0.00046    | Auto-selection too aggressive                    |
+| -       | Feature Eng + 3 Best   | 0.92086     | -0.00014    | GB+XGB+LGB only (PReLU NNs, still < weighted)    |
 
 ## Current Best: 0.92100 (Weighted Ensemble 80% or 90%) 🏆
 

@@ -274,7 +274,7 @@ if LIGHTGBM_AVAILABLE:
         'random_state': 2025, 'verbosity': -1
     }
     # Use CPU with multiple threads (safer - GPU requires special LightGBM build)
-    lgb_params['n_jobs'] = 12
+        lgb_params['n_jobs'] = 12
     print("  Using CPU with 12 threads")
     model_lgb = lgb.LGBMClassifier(**lgb_params)
     model_lgb.fit(train_data_split, train_labels_split, eval_set=[(val_data, val_labels)],

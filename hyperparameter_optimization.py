@@ -9,7 +9,10 @@ import sklearn.ensemble
 import sklearn.metrics
 import time
 
-num_jobs = 10;
+# CPU Configuration: For background operation without overheating
+# AMD 9800X3D has 12 cores - using 8 cores leaves 4 for system/background tasks
+# This prevents overheating while still being efficient
+num_jobs = 8  # Use 8 cores (leaves 4 cores free for system)
 
 try:
     import xgboost as xgb
@@ -44,10 +47,15 @@ else:
 # Configuration: Adjust trials for speed vs thoroughness
 # - 20 trials: ~1-1.5 hours 
 # - 50 trials: ~2-4 hours 
-N_TRIALS = 20  # Change this to 50 for more thorough search
+N_TRIALS = 50  # Set to 50 for thorough search (best results), or 20 for faster
 print(f"\nConfiguration: {N_TRIALS} trials per model")
 print(f"  Total trials: {N_TRIALS * 3} (XGBoost + LightGBM + GradientBoosting)")
-print(f"  Estimated time: {N_TRIALS * 3 * 2:.0f}-{N_TRIALS * 3 * 4:.0f} minutes")
+print(f"  Estimated time: {N_TRIALS * 3 * 2:.0f}-{N_TRIALS * 3 * 4:.0f} minutes (~2-4 hours)")
+print(f"  CPU usage: {num_jobs} cores (out of 12) - safe for background operation")
+print(f"  Note: Running in background mode - will take longer but won't overheat")
+
+# Submission filename - automatically includes trial count
+SUBMISSION_FILENAME = f'submissions/my_submission_optimized{N_TRIALS}trials.csv'
 
 # Load data
 print("\n[1/5] Loading and preprocessing data...")
@@ -532,8 +540,8 @@ print("="*80)
 
 # Save submission
 submission = pd.DataFrame({'id': ids, 'loan_paid_back': best_test_pred})
-submission.to_csv('submissions/my_submission_optimized.csv', index=False)
-print(f"\n✓ Generated submission file: submissions/my_submission_optimized.csv")
+submission.to_csv(SUBMISSION_FILENAME, index=False)
+print(f"\n✓ Generated submission file: {SUBMISSION_FILENAME}")
 print(f"  Expected improvement: +0.0005 to +0.002 over 0.92100")
 print(f"  Target: 0.9215 - 0.923")
 

@@ -38,12 +38,13 @@ nsamples = train_data.shape[0]
 # ============================================================
 # Training constants
 # ============================================================
-n_nodes_l1 = 100
+n_nodes_l1 = 8
 batch_size = 2048       # Mini-batch gradient descent
 learning_rate = 1e-4
-n_epochs = 1000
+L2_regularization_rate = 0
+n_epochs = 1500
 eval_step = 1
-early_stop_patience = 50   # number of eval steps allowed without improvement
+early_stop_patience = 10   # number of eval steps allowed without improvement
 
 # Print the configuration
 print(f"Num epochs: {n_epochs}  Batch size: {batch_size}  Learning rate: {learning_rate}")
@@ -77,8 +78,10 @@ Y_test = torch.tensor(test_labels.values.reshape(-1, 1), dtype=torch.float32, de
 # because we will use BCEWithLogitsLoss which combines a sigmoid layer
 model = torch.nn.Sequential(
     torch.nn.Linear(n_inputs, n_nodes_l1),
-    torch.nn.ELU(),
+    #torch.nn.ELU(),
     #torch.nn.ReLU(),
+    torch.nn.Tanh(),
+    #torch.nn.LeakyReLU(),
     torch.nn.Linear(n_nodes_l1, 1)
 )
 model.to(device)
@@ -95,6 +98,7 @@ torch.nn.init.xavier_normal_(model[2].weight)
 # Optimizer and Loss
 # ============================================================
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+# optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate,weight_decay=L2_regularization_rate)
 loss_fn = torch.nn.BCEWithLogitsLoss()
 
 print(f"Optimizer: Adam with binary cross-entropy loss.  Learning rate: {learning_rate}")

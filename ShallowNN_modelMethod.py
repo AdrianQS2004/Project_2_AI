@@ -51,10 +51,10 @@ nsamples = train_data.shape[0]
 # ============================================================
 # Training constants
 # ============================================================
-n_nodes_l1 = 100
+n_nodes_l1 = 8
 batch_size = 2048      # Mini-batch gradient descent
 learning_rate = 1e-4
-n_epochs = 3000
+n_epochs = 1500
 eval_step = 1
 early_stop_patience = 50   # number of eval steps allowed without improvement
 
@@ -90,7 +90,8 @@ X_test = torch.tensor(test_data.values, dtype=torch.float32, device=device)
 # because we will use BCEWithLogitsLoss which combines a sigmoid layer
 model = torch.nn.Sequential(
     torch.nn.Linear(n_inputs, n_nodes_l1),
-    torch.nn.ELU(),
+    #torch.nn.ELU(),
+    torch.nn.Tanh(),
     torch.nn.Linear(n_nodes_l1, 1)
 )
 model.to(device)

@@ -37,8 +37,8 @@ nsamples = train_data.shape[0]
 # ============================================================
 # Training constants
 # ============================================================
-n_iterations = 20000
-learning_rate = 0.1
+n_iterations = 10000
+learning_rate = 1
 eval_step = 100
 
 # Print the configuration

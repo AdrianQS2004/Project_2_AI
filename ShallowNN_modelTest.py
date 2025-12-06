@@ -44,7 +44,7 @@ learning_rate = 1e-4
 L2_regularization_rate = 0
 n_epochs = 1500
 eval_step = 1
-early_stop_patience = 10   # number of eval steps allowed without improvement
+early_stop_patience = 50  # number of eval steps allowed without improvement
 
 # Print the configuration
 print(f"Num epochs: {n_epochs}  Batch size: {batch_size}  Learning rate: {learning_rate}")
@@ -80,8 +80,8 @@ model = torch.nn.Sequential(
     torch.nn.Linear(n_inputs, n_nodes_l1),
     #torch.nn.ELU(),
     #torch.nn.ReLU(),
-    torch.nn.Tanh(),
-    #torch.nn.LeakyReLU(),
+    #torch.nn.Tanh(),
+    torch.nn.LeakyReLU(),
     torch.nn.Linear(n_nodes_l1, 1)
 )
 model.to(device)

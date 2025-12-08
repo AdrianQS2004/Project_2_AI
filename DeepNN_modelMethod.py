@@ -17,13 +17,26 @@ import time
 # Load and prepare data
 # ============================================================
 
-df = pd.read_csv("Datasets/train.csv", header=0)
-df = pd.get_dummies(df, prefix_sep="_", drop_first=True, dtype=int)
-labels = df["loan_paid_back"]
-df = df.drop(columns="loan_paid_back")
-train_data, test_data, train_labels, test_labels = \
-            sklearn.model_selection.train_test_split(df, labels,
-            test_size=0.2, shuffle=True, random_state=2025)
+# Load and prepare the data
+training_db = pd.read_csv("Datasets/train.csv", header=0)
+test_db = pd.read_csv("Datasets/test.csv", header=0)
+
+
+training_db = pd.get_dummies(training_db, prefix_sep="_", drop_first=True, dtype=int)
+labels = training_db["loan_paid_back"]
+ids = test_db['id']
+training_db = training_db.drop(columns=["loan_paid_back", "id"])
+
+test_db = test_db.drop(columns=["id"])
+test_db = pd.get_dummies(test_db, prefix_sep="_", drop_first=True, dtype=int)
+
+# Align test columns to match training columns (fill missing with 0, drop extra)
+test_db = test_db.reindex(columns=training_db.columns, fill_value=0)
+
+train_data = training_db.copy()
+train_labels = labels.copy()
+test_data = test_db.copy()
+
 
 # Standardize scale for all columns
 train_means = train_data.mean()
@@ -39,12 +52,11 @@ nsamples = train_data.shape[0]
 # Training constants
 # ============================================================
 n_nodes_l1 = 8
-batch_size = 1024       # Mini-batch gradient descent
+batch_size = 2048    #512   #2048    # Mini-batch gradient descent
 learning_rate = 1e-4
-L2_regularization_rate = 0
 n_epochs = 1500
 eval_step = 1
-early_stop_patience = 50  # number of eval steps allowed without improvement
+early_stop_patience = 50   # number of eval steps allowed without improvement
 
 # Print the configuration
 print(f"Num epochs: {n_epochs}  Batch size: {batch_size}  Learning rate: {learning_rate}")
@@ -68,28 +80,35 @@ X = torch.tensor(train_data.values, dtype=torch.float32, device=device)
 Y = torch.tensor(train_labels.values.reshape(-1, 1), dtype=torch.float32, device=device)
 
 X_test = torch.tensor(test_data.values, dtype=torch.float32, device=device)
-Y_test = torch.tensor(test_labels.values.reshape(-1, 1), dtype=torch.float32, device=device)
+#Y_test = torch.tensor(test_labels.values.reshape(-1, 1), dtype=torch.float32, device=device)
 
 # ============================================================
 # Create and initialize neural network
 # ============================================================
 
-# Note that the final layer is skipping the sigmoid activation
-# because we will use BCEWithLogitsLoss which combines a sigmoid layer
 model = torch.nn.Sequential(
-    torch.nn.Linear(n_inputs, n_nodes_l1),
+    torch.nn.Linear(n_inputs, 32),
     torch.nn.ELU(),
-    #torch.nn.ReLU(),
-    #torch.nn.Tanh(),
-    #torch.nn.LeakyReLU(),
-    torch.nn.Linear(n_nodes_l1, 1)
-)
-model.to(device)
+    torch.nn.Dropout(0.2),
+
+    torch.nn.Linear(32, 16),
+    torch.nn.ELU(),
+    torch.nn.Dropout(0.2),
+
+    torch.nn.Linear(16, 1)   # final logit output
+).to(device)
+
 print(model)
 
+# Correct weight initialization: ONLY initialize Linear layers
+for layer in model:
+    if isinstance(layer, torch.nn.Linear):
+        torch.nn.init.kaiming_normal_(layer.weight, nonlinearity="relu")
+        torch.nn.init.zeros_(layer.bias)
+
 # Initialize weights explicitly
-torch.nn.init.kaiming_normal_(model[0].weight, nonlinearity="relu")
-torch.nn.init.xavier_normal_(model[2].weight)
+#torch.nn.init.kaiming_normal_(model[0].weight, nonlinearity="relu")
+#torch.nn.init.xavier_normal_(model[2].weight)
 
 # Use defaults for biases
 
@@ -98,7 +117,6 @@ torch.nn.init.xavier_normal_(model[2].weight)
 # Optimizer and Loss
 # ============================================================
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-# optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate,weight_decay=L2_regularization_rate)
 loss_fn = torch.nn.BCEWithLogitsLoss()
 
 print(f"Optimizer: Adam with binary cross-entropy loss.  Learning rate: {learning_rate}")
@@ -108,14 +126,6 @@ print(f"Optimizer: Adam with binary cross-entropy loss.  Learning rate: {learnin
 # ============================================================
 
 train_loss_hist = []
-test_roc_auc_hist = []
-
-# Backup for best model
-best_test_roc_auc = float('-inf')
-best_epoch = -1
-best_state_dict = None
-
-epochs_without_improvement = 0
 
 start_time = time.time()
 
@@ -143,77 +153,38 @@ for epoch in range(n_epochs):
 
         epoch_loss += loss.item()
 
-    # Evaluation
+    avg_train_loss = epoch_loss / num_batches
+    train_loss_hist.append(avg_train_loss)
+
     if (epoch + 1) % eval_step == 0:
+        print(f"Epoch {epoch+1:3d}, Train loss: {avg_train_loss:.4f}")
 
-        avg_train_loss = epoch_loss / num_batches
-        train_loss_hist.append(avg_train_loss)
-
-        # Switch model to evaluation mode 
-        model.eval()
-
-        with torch.no_grad():
-            test_logits = model(X_test)
-            test_pred_proba = torch.sigmoid(test_logits).cpu().numpy()
-            test_roc_auc = sklearn.metrics.roc_auc_score(test_labels, test_pred_proba)
-
-        test_roc_auc_hist.append(test_roc_auc)
-
-        print_line = f"Epoch {epoch+1:3d}, Train loss: {avg_train_loss:.4f}, Test ROC AUC: {test_roc_auc:.4f}"
-
-        if test_roc_auc > best_test_roc_auc:
-            best_test_roc_auc = test_roc_auc
-            best_epoch = epoch + 1
-            best_state_dict = {k: v.clone() for k, v in model.state_dict().items()}
-
-            epochs_without_improvement = 0   # reset patience counter
-            print_line += "  New best"
-        else:
-            epochs_without_improvement += 1  # increment patience counter
-
-        # Early stopping condition
-        if epochs_without_improvement > early_stop_patience:
-            print_line += "  **Early stop triggered**"
-            print(print_line)
-            break
-        
-        print(print_line)
 
 elapsed_time = time.time() - start_time
 print("Execution time: {:.1f}".format(elapsed_time))
 
 # ============================================================
-# Restore best model and final evaluation
+# Use the model for prediction
 # ============================================================
 
-print("\nRestoring best model parameters (Test ROC AUC = {:.4f} Epoch = {})".format(best_test_roc_auc, best_epoch))
-model.load_state_dict(best_state_dict)
 model.eval()
 
 with torch.no_grad():
-    final_train_roc_auc = sklearn.metrics.roc_auc_score(train_labels, torch.sigmoid(model(X)).cpu().numpy())
-    final_test_roc_auc = sklearn.metrics.roc_auc_score(test_labels, torch.sigmoid(model(X_test)).cpu().numpy())
+    new_logits = model(X_test)
+    preds = torch.sigmoid(new_logits).cpu().numpy().flatten()
 
-print("\nFinal Evaluation (best model from epoch {}):".format(best_epoch))
-print("Best Test  ROC AUC: {:.4f}".format(final_test_roc_auc))
-print("     Train ROC AUC: {:.4f}".format(final_train_roc_auc))
+
+# Build submission DataFrame using the original ids column
+submission = pd.DataFrame({'id': ids, 'loan_paid_back': preds})
+submission.to_csv('my_submission.csv', index=False)
+print(f"Wrote submission 'my_submission.csv' with {len(submission)} rows")
 
 # ============================================================
-# Plot cost and accuracy evolution
+# (Optional) Plot training loss
 # ============================================================
-epochs_hist = np.arange(1, epoch + 1, eval_step)
-
-# Plot train loss evolution
+epochs_hist = np.arange(1, n_epochs + 1)
 plt.plot(epochs_hist, train_loss_hist, "b")
 plt.xlabel("Epoch")
 plt.ylabel("Train Loss")
 plt.title("Train Loss Evolution")
-plt.figure()
-
-# Plot test ROC AUC evolution
-plt.plot(epochs_hist, test_roc_auc_hist, "r", label="Test ROC AUC")
-plt.xlabel("Epoch")
-plt.ylabel("ROC AUC")
-plt.title("ROC AUC Evolution")
-plt.legend()
 plt.show()

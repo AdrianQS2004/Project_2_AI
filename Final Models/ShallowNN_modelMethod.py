@@ -1,6 +1,7 @@
 # Intro to AI: Project 2
 # Luis Baeza, Adrian Quiros, Adrian de Souza
 # Shallow Neural Network Model - Method 
+# used the code from Credit_ShallowNN.py as base.
 # This script uses the train data to train the model and then predicts on the test data for submission.
 
 import numpy as np

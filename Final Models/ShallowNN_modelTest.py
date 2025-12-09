@@ -1,6 +1,7 @@
 # Intro to AI: Project 2
 # Luis Baeza, Adrian Quiros, Adrian de Souza
 # Shallow Neural Network Model - Test 
+# used the code from Credit_ShallowNN.py as base.
 # This script uses only the train.csv to train and test ROC AUC. 
 
 import numpy as np

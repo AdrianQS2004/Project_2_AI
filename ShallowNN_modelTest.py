@@ -39,12 +39,12 @@ nsamples = train_data.shape[0]
 # Training constants
 # ============================================================
 n_nodes_l1 = 8
-batch_size = 1024       # Mini-batch gradient descent
-learning_rate = 1e-4
+batch_size = 2048       # Mini-batch gradient descent
+learning_rate = 1e-3
 L2_regularization_rate = 0
-n_epochs = 1500
+n_epochs = 1000
 eval_step = 1
-early_stop_patience = 50  # number of eval steps allowed without improvement
+early_stop_patience = 100000  # number of eval steps allowed without improvement
 
 # Print the configuration
 print(f"Num epochs: {n_epochs}  Batch size: {batch_size}  Learning rate: {learning_rate}")

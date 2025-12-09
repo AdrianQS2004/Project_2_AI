@@ -41,7 +41,7 @@ nsamples = train_data.shape[0]
 n_nodes_l1 = 8
 batch_size = 2048       # Mini-batch gradient descent
 learning_rate = 1e-3
-L2_regularization_rate = 1e-4
+L2_regularization_rate = 1e-3
 n_epochs = 1000
 eval_step = 1
 early_stop_patience = 1000  # number of eval steps allowed without improvement
@@ -99,9 +99,12 @@ torch.nn.init.xavier_normal_(model[2].weight)
 # ============================================================
 # Use AdamW for decoupled weight decay (L2) regularization.
 # Set `L2_regularization_rate` to a small value (e.g. 1e-5) to enable.
-optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=L2_regularization_rate)
+
+# optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=L2_regularization_rate)
+
 # If you prefer plain Adam without decoupled weight decay, uncomment:
-# optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 loss_fn = torch.nn.BCEWithLogitsLoss()
 
 print(f"Optimizer: AdamW with binary cross-entropy loss.  Learning rate: {learning_rate}  Weight decay: {L2_regularization_rate}")
@@ -204,7 +207,8 @@ print("     Train ROC AUC: {:.4f}".format(final_train_roc_auc))
 # ============================================================
 # Plot cost and accuracy evolution
 # ============================================================
-epochs_hist = np.arange(1, epoch + 1, eval_step)
+# Use actual length of history lists to match x and y dimensions
+epochs_hist = np.arange(1, len(train_loss_hist) + 1, 1)
 
 # Plot train loss evolution
 plt.plot(epochs_hist, train_loss_hist, "b")

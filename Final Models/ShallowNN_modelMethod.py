@@ -1,15 +1,11 @@
-# Shallow? or deep neural network?
-# Introduction to Machine Learning
-# Credit Default Dataset
-# Shallow neural network
-# By Juan Carlos Rojas
-# Copyright 2025, Texas Tech University - Costa Rica
+# Intro to AI: Project 2
+# Luis Baeza, Adrian Quiros, Adrian de Souza
+# Shallow Neural Network Model - Method 
+# This script uses the train data to train the model and then predicts on the test data for submission.
 
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-import sklearn.model_selection
-import sklearn.metrics
 import torch
 import time
 
@@ -52,12 +48,11 @@ nsamples = train_data.shape[0]
 # Training constants
 # ============================================================
 n_nodes_l1 = 8
-batch_size = 2048    #512   #2048    # Mini-batch gradient descent
+batch_size = 2048    
 learning_rate = 1e-3
 n_epochs = 900
 L2_regularization_rate = 1e-5
 eval_step = 1
-early_stop_patience = 50   # number of eval steps allowed without improvement
 
 # Print the configuration
 print(f"Num epochs: {n_epochs}  Batch size: {batch_size}  Learning rate: {learning_rate}")
@@ -81,18 +76,14 @@ X = torch.tensor(train_data.values, dtype=torch.float32, device=device)
 Y = torch.tensor(train_labels.values.reshape(-1, 1), dtype=torch.float32, device=device)
 
 X_test = torch.tensor(test_data.values, dtype=torch.float32, device=device)
-#Y_test = torch.tensor(test_labels.values.reshape(-1, 1), dtype=torch.float32, device=device)
 
 # ============================================================
 # Create and initialize neural network
 # ============================================================
 
-# Note that the final layer is skipping the sigmoid activation
-# because we will use BCEWithLogitsLoss which combines a sigmoid layer
 model = torch.nn.Sequential(
     torch.nn.Linear(n_inputs, n_nodes_l1),
     torch.nn.ELU(),
-    #torch.nn.Tanh(),
     torch.nn.Linear(n_nodes_l1, 1)
 )
 model.to(device)
@@ -102,14 +93,13 @@ print(model)
 torch.nn.init.kaiming_normal_(model[0].weight, nonlinearity="relu")
 torch.nn.init.xavier_normal_(model[2].weight)
 
-# Use defaults for biases
-
-
 # ============================================================
 # Optimizer and Loss
 # ============================================================
+# Normal Optimizer without weight decay
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 
+# Weight decay optimizer / Regularization
 #optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=L2_regularization_rate)
 
 loss_fn = torch.nn.BCEWithLogitsLoss()
@@ -159,7 +149,7 @@ elapsed_time = time.time() - start_time
 print("Execution time: {:.1f}".format(elapsed_time))
 
 # ============================================================
-# Use the model for prediction
+# Uses the model for prediction
 # ============================================================
 
 model.eval()
@@ -175,7 +165,7 @@ submission.to_csv('my_submission.csv', index=False)
 print(f"Wrote submission 'my_submission.csv' with {len(submission)} rows")
 
 # ============================================================
-# (Optional) Plot training loss
+# Plots the training loss
 # ============================================================
 epochs_hist = np.arange(1, n_epochs + 1)
 plt.plot(epochs_hist, train_loss_hist, "b")

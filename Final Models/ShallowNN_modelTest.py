@@ -1,9 +1,7 @@
-# Shallow? or deep neural network?
-# Introduction to Machine Learning
-# Credit Default Dataset
-# Shallow neural network
-# By Juan Carlos Rojas
-# Copyright 2025, Texas Tech University - Costa Rica
+# Intro to AI: Project 2
+# Luis Baeza, Adrian Quiros, Adrian de Souza
+# Shallow Neural Network Model - Test 
+# This script uses only the train.csv to train and test ROC AUC. 
 
 import numpy as np
 import pandas as pd

@@ -24,7 +24,7 @@ RANDOM_STATE = 42
 N_ESTIMATORS   = 200        
 MAX_DEPTH      = 7          
 LEARNING_RATE  = 0.03 
-SUBSAMPLE      = 0.7           
+SUBSAMPLE      = 1.0           
 
 
 def load_and_prepare_data():
@@ -150,3 +150,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

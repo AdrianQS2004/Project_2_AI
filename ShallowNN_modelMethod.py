@@ -54,7 +54,8 @@ nsamples = train_data.shape[0]
 n_nodes_l1 = 8
 batch_size = 2048    #512   #2048    # Mini-batch gradient descent
 learning_rate = 1e-3
-n_epochs = 650
+n_epochs = 900
+L2_regularization_rate = 1e-5
 eval_step = 1
 early_stop_patience = 50   # number of eval steps allowed without improvement
 
@@ -108,6 +109,9 @@ torch.nn.init.xavier_normal_(model[2].weight)
 # Optimizer and Loss
 # ============================================================
 optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
+
+#optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=L2_regularization_rate)
+
 loss_fn = torch.nn.BCEWithLogitsLoss()
 
 print(f"Optimizer: Adam with binary cross-entropy loss.  Learning rate: {learning_rate}")

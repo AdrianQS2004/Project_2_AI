@@ -41,10 +41,10 @@ nsamples = train_data.shape[0]
 n_nodes_l1 = 8
 batch_size = 2048       # Mini-batch gradient descent
 learning_rate = 1e-3
-L2_regularization_rate = 0
+L2_regularization_rate = 1e-4
 n_epochs = 1000
 eval_step = 1
-early_stop_patience = 100000  # number of eval steps allowed without improvement
+early_stop_patience = 1000  # number of eval steps allowed without improvement
 
 # Print the configuration
 print(f"Num epochs: {n_epochs}  Batch size: {batch_size}  Learning rate: {learning_rate}")
@@ -97,11 +97,14 @@ torch.nn.init.xavier_normal_(model[2].weight)
 # ============================================================
 # Optimizer and Loss
 # ============================================================
-optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
-# optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate,weight_decay=L2_regularization_rate)
+# Use AdamW for decoupled weight decay (L2) regularization.
+# Set `L2_regularization_rate` to a small value (e.g. 1e-5) to enable.
+optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate, weight_decay=L2_regularization_rate)
+# If you prefer plain Adam without decoupled weight decay, uncomment:
+# optimizer = torch.optim.Adam(model.parameters(), lr=learning_rate)
 loss_fn = torch.nn.BCEWithLogitsLoss()
 
-print(f"Optimizer: Adam with binary cross-entropy loss.  Learning rate: {learning_rate}")
+print(f"Optimizer: AdamW with binary cross-entropy loss.  Learning rate: {learning_rate}  Weight decay: {L2_regularization_rate}")
 
 # ============================================================
 # Training loop
